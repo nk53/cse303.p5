@@ -10,27 +10,34 @@ class chash
 	/// The bucket list
 	const std::vector<clist> buckets;
 
+    /// The number of buckets
+    const size_t size;
+
 public:
-	chash(unsigned _buckets)
+	chash(unsigned int _buckets)
+    : size(_buckets)
 	{}
 
 	/// insert *key* into the appropriate linked list if it doesn't already
 	/// exist; return true if the key was added successfully.
 	bool insert(int key)
 	{
-		return false;
+        clist bucket = buckets[key % size];
+        return bucket.insert(key);
 	}
 	/// remove *key* from the appropriate list if it was present; return true
 	/// if the key was removed successfully.
 	bool remove(int key)
 	{
-		return false;
+        clist bucket = buckets[key % size];
+		return bucket.remove(key);
 	}
 	/// return true if *key* is present in the appropriate list, false
 	/// otherwise
 	bool lookup(int key) const
 	{
-		return false;
+        clist bucket = buckets[key % size];
+		return bucket.lookup(key);
 	}
 
 	//The following are not tested by the given tester but are required for grading
