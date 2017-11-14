@@ -158,16 +158,42 @@ public:
 	//No locks are required for these.
 	size_t getSize() const
 	{
-		return 0;
+		Node * current = head;
+		
+		if(current == NULL) {
+			return -1;
+		}
+		
+		int size = 0;
+		do {
+			size++;
+			current = current->next;
+		} while(current != NULL);
+		
+		return size;
 	}
 	int getElement(size_t idx) const
 	{
-		return 0;
+		Node * current = head;
+		if(current == NULL) {
+			return -1;
+		}
+		
+		int ret = -1, i = 0;
+		do {
+			if(i++ == idx) {
+				ret = current->value;
+				break;
+			}
+			current = current->next;
+		} while(current != NULL);
+		
+		return ret;
 	}
 
 	//These functions just need to exist, they do not need to do anything
 	size_t getBucketSize(size_t bucket) const
-	{
+	{	
 		return 0;
 	}
 	int getElement(size_t bucket, size_t idx) const
