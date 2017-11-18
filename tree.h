@@ -238,7 +238,13 @@ private:
 		// Node value isn't < || > to target
 		return true;
 	}
-
+	
+	void deleteTree(Node * node) {
+		if(node->left) deleteTree(node->left);
+		if(node->right) deleteTree(node->right);
+		delete node;
+	}
+	
 #ifdef DEBUG_MODE	
 	void printTree(Node * node) {
 		if(node->left) {
@@ -259,6 +265,12 @@ public:
 			perror("error creating lock");
 			exit(-1);
 		}
+	}
+	
+	~tree() {
+		pthread_rwlock_destroy(&lock);
+		
+		deleteTree(head);
 	}
 	
 	/// insert /num/ values from /data/ array into the tree, and return the
