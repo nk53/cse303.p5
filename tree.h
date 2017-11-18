@@ -25,7 +25,7 @@ private:
 	unsigned elements = 0;
 	
 	// The RW-Lock
-	mutable pthread_rwlock_t lock = PTHREAD_RWLOCK_INITIALIZER;
+	mutable pthread_rwlock_t lock;
 	
 	// Returns the idx'th element from the tree assuming an inorder traversal.
 	int getElement(size_t idx, Node* at) const {
@@ -235,6 +235,7 @@ private:
 			return lookupValue(node->right, value);
 		}
 		
+		// Node value isn't < || > to target
 		return true;
 	}
 
