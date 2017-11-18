@@ -1,4 +1,6 @@
 #pragma once
+#include <queue>
+#include <mutex>
 
 /// TODO: complete this implementation of a thread-safe (concurrent) hash
 ///       table of integers, implemented as an array of linked lists.  In
@@ -11,7 +13,7 @@ class shash2
 {
 private:
     struct Node {
-        int val;
+        int value;
         struct Node* next;
     };
 
@@ -21,8 +23,8 @@ private:
     };
 
     // constant pointer to buckets, whose head values might change
-    const struct Sentinel* buckets;
-    const unsigned int numBuckets;
+    struct Sentinel* buckets;
+    unsigned int numBuckets;
 public:
 	shash2(unsigned int _buckets)
 	{
@@ -39,33 +41,128 @@ public:
 	/// insert /num/ values from /keys/ array into the hash, and return the
 	/// success/failure of each insert in /results/ array.
 	void insert(int* keys, bool* results, int num)
-	{}
+	{
+        // keeps track of how many updates need to be done in each bucket
+        std::queue<int> * update_indices = new std::queue<int>[numBuckets];
+        for (int i=0; i < num; ++i)
+        {
+            const int bucket = keys[i] % numBuckets;
+            update_indices[bucket].push(i);
+        }
+
+        // acquire one lock for each bucket that is being updated
+        for (int bucket_index=0; bucket_index < numBuckets; ++bucket_index)
+        {
+            if (update_indices[bucket_index].size() > 0)
+            {
+                // acquire lock
+                std::lock_guard<std::mutex> lock(buckets[bucket_index].mtx);
+
+                // do this bucket's updates
+                while (update_indices[bucket_index].size() > 0)
+                {
+                    // handle the queue
+                    int key_index = update_indices[bucket_index].front();
+                    update_indices[bucket_index].pop();
+
+                    // do the actual insert
+                    results[key_index] = _insert(keys[key_index]);
+                }
+            }
+        }
+
+        delete[] update_indices;
+    }
+
 	/// remove *key* from the list if it was present; return true if the key
 	/// was removed successfully.
 	void remove(int* keys, bool* results, int num)
-	{}
+	{
+        // keeps track of how many updates need to be done in each bucket
+        std::queue<int> * update_indices = new std::queue<int>[numBuckets];
+        for (int i=0; i < num; ++i)
+        {
+            const int bucket = keys[i] % numBuckets;
+            update_indices[bucket].push(i);
+        }
+
+        // acquire one lock for each bucket that is being updated
+        for (int bucket_index=0; bucket_index < numBuckets; ++bucket_index)
+        {
+            if (update_indices[bucket_index].size() > 0)
+            {
+                // acquire lock
+                std::lock_guard<std::mutex> lock(buckets[bucket_index].mtx);
+
+                // do this bucket's updates
+                while (update_indices[bucket_index].size() > 0)
+                {
+                    // handle the queue
+                    int key_index = update_indices[bucket_index].front();
+                    update_indices[bucket_index].pop();
+
+                    // do the actual insert
+                    results[key_index] = _remove(keys[key_index]);
+                }
+            }
+        }
+
+        delete[] update_indices;
+    }
+
 	/// return true if *key* is present in the list, false otherwise
 	void lookup(int* keys, bool* results, int num) const
-	{}
+	{
+        std::queue<int> * update_indices = new std::queue<int>[numBuckets];
+        for (int i=0; i < num; ++i)
+        {
+            const int bucket = keys[i] % numBuckets;
+            update_indices[bucket].push(i);
+        }
+
+        // acquire one lock for each bucket that is being updated
+        for (int bucket_index=0; bucket_index < numBuckets; ++bucket_index)
+        {
+            if (update_indices[bucket_index].size() > 0)
+            {
+                // acquire lock
+                std::lock_guard<std::mutex> lock(buckets[bucket_index].mtx);
+
+                // do this bucket's updates
+                while (update_indices[bucket_index].size() > 0)
+                {
+                    // handle the queue
+                    int key_index = update_indices[bucket_index].front();
+                    update_indices[bucket_index].pop();
+
+                    // do the actual insert
+                    results[key_index] = _lookup(keys[key_index]);
+                }
+            }
+        }
+
+        delete[] update_indices;
+    }
 
     // only returns false if the value already exists
     bool _insert(int key)
     {
-        struct Node* current = buckets[key % numBuckets].head;
+        struct Sentinel* bucket = &buckets[key % numBuckets];
+        struct Node* current = bucket->head;
         struct Node* previous = current;
 
         struct Node* node = new Node;
-        node->val = key;
+        node->value = key;
         node->next = NULL;
 
         if (current == NULL)
         {
-            buckets[index].head = node;
+            bucket->head = node;
 
             return true;
         }
 
-        while (current != NULL && key > current->val)
+        while (current != NULL && key > current->value)
         {
             previous = current;
             current = current->next;
@@ -84,8 +181,17 @@ public:
             return false;
         }
 
-        // we're somewhere in the middle
-        previous->next = node;
+        if (current == previous)
+        {
+            // are we at the head?
+            node->next = current;
+        }
+        else
+        {
+            // we're somewhere in the middle
+            previous->next = node;
+        }
+
         node->next = current;
 
         return true;
@@ -93,10 +199,11 @@ public:
 
     bool _remove(int key)
     {
-        struct Node* current = buckets[key % numBuckets].head;
+        struct Sentinel* bucket = &buckets[key % numBuckets];
+        struct Node* current = bucket->head;
         struct Node* previous = current;
 
-        while (current != NULL && key > current->val)
+        while (current != NULL && key > current->value)
         {
             previous = current;
             current = current->next;
@@ -108,7 +215,16 @@ public:
             return false;
         }
 
-        previous->next = current->next;
+        if (current == previous)
+        {
+            // head needs to be replaced
+            bucket->head = current->next;
+        }
+        else
+        {
+            // we're somewhere in the middle
+            previous->next = current->next;
+        }
         
         delete current;
         return true;
@@ -116,13 +232,18 @@ public:
 
     bool _lookup(int key) const
     {
-        struct Node* current = buckets[index].head;
-        while (current != NULL && key > current->val)
+        struct Node* current = buckets[key % numBuckets].head;
+        while (current != NULL && key > current->value)
         {
             current = current->next;
         }
 
-        if (key == current->val)
+        if (current == NULL)
+        {
+            return false;
+        }
+
+        if (key == current->value)
         {
             return true;
         }
@@ -154,6 +275,21 @@ public:
 	//These functions just need to exist, they do not need to do anything
 	int getElement(size_t idx) const
 	{
-		return 0;
+        for (int i=0; i < numBuckets; ++i)
+        {
+            struct Node* current = buckets[i].head;
+            while (current != NULL && idx > 0)
+            {
+                current = current->next;
+                --idx;
+            }
+
+            if (current != NULL && idx == 0)
+            {
+                return current->value;
+            }
+        }
+
+        return 0;
 	}
 };
