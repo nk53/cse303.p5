@@ -32,7 +32,6 @@ public:
 		}
 	}
 
-
 	/// insert *key* into the appropriate linked list if it doesn't already
 	/// exist; return true if the key was added successfully.
 	bool insert(int key)

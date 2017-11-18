@@ -25,7 +25,7 @@ private:
 	unsigned elements = 0;
 	
 	// The RW-Lock
-	mutable pthread_rwlock_t lock = PTHREAD_RWLOCK_INITIALIZER;
+	mutable pthread_rwlock_t lock;
 	
 	// Returns the idx'th element from the tree assuming an inorder traversal.
 	int getElement(size_t idx, Node* at) const {
@@ -106,15 +106,12 @@ private:
 		
 		// Insert into tree
 		int nodeValue = node->value;
-		Node * tmp = NULL;
 		if(value < nodeValue) {
 			// Less than to the left
-			tmp = insertValue(node->left, value, result);
-			node->left = tmp;
+			node->left = insertValue(node->left, value, result);
 		} else if(value > nodeValue) {
 			// Greater than to the right
-			tmp = insertValue(node->right, value, result);
-			node->right = tmp;
+			node->right = insertValue(node->right, value, result);
 		} else {
 			*result = false;
 			// Equals to
@@ -122,8 +119,7 @@ private:
 		}
 		
 		// Update the height of the node
-		int height = max(getHeight(node->left), getHeight(node->right)) + 1;
-		node->height = height;
+		node->height = max(getHeight(node->left), getHeight(node->right)) + 1;
 		
 		// Get the balance factor
 		int balance = getBalance(node);
@@ -180,9 +176,9 @@ private:
 				
 				if(tmp) {
 					// Copy everything from tmp to current node
-					node->value = tmp->value;
-					node->left = tmp->left;
-					node->right = tmp->right;
+					node->value  = tmp->value;
+					node->left   = tmp->left;
+					node->right  = tmp->right;
 					node->height = tmp->height;
 					
 					// Clear out tmp
@@ -211,17 +207,17 @@ private:
 		int balance = getBalance(node);
 		if(balance > 1) {
 			if(getBalance(node->left) >= 0) {
-				return rotateRight(node);
+				node = rotateRight(node);
 			} else {
 				node->left = rotateLeft(node->left);
-				return rotateRight(node);
+				node = rotateRight(node);
 			}
 		} else if(balance < -1) {
 			if(getBalance(node->right) >= 0) {
-				return rotateLeft(node);
+				node = rotateLeft(node);
 			} else {
 				node->right = rotateRight(node->right);
-				return rotateLeft(node);
+				node = rotateLeft(node);
 			}
 		}
 		
@@ -239,9 +235,16 @@ private:
 			return lookupValue(node->right, value);
 		}
 		
+		// Node value isn't < || > to target
 		return true;
 	}
-
+	
+	void deleteTree(Node * node) {
+		if(node->left) deleteTree(node->left);
+		if(node->right) deleteTree(node->right);
+		delete node;
+	}
+	
 #ifdef DEBUG_MODE	
 	void printTree(Node * node) {
 		if(node->left) {
@@ -262,6 +265,12 @@ public:
 			perror("error creating lock");
 			exit(-1);
 		}
+	}
+	
+	~tree() {
+		pthread_rwlock_destroy(&lock);
+		
+		deleteTree(head);
 	}
 	
 	/// insert /num/ values from /data/ array into the tree, and return the
