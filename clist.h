@@ -19,9 +19,15 @@ class clist
 	Node* head;
 
 public:
-	clist(int)
+    clist()
+    : head(NULL)
+    {}
+
+	clist(int value)
 	: head(NULL)
-	{}
+	{
+        insert(value);
+    }
 
 	/// insert *key* into the linked list if it doesn't already exist; return
 	/// true if the key was added successfully.
