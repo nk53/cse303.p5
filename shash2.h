@@ -18,7 +18,7 @@ private:
     };
 
     struct Sentinel {
-        std::mutex mtx;
+        std::mutex lock;
         struct Node* head;
     };
 
@@ -38,6 +38,25 @@ public:
         }
     }
 
+    ~shash2()
+    {
+        for (int i = 0; i < numBuckets; ++i)
+        {
+            struct Sentinel* bucket = &buckets[i];
+            struct Node* node = bucket->head;
+            struct Node* next = NULL;
+
+            while (node != NULL)
+            {
+                next = node->next;
+                delete node;
+                node = next;
+            }
+        }
+
+        delete[] buckets;
+    }
+
 	/// insert /num/ values from /keys/ array into the hash, and return the
 	/// success/failure of each insert in /results/ array.
 	void insert(int* keys, bool* results, int num)
@@ -55,8 +74,9 @@ public:
         {
             if (update_indices[bucket_index].size() > 0)
             {
-                // acquire lock
-                std::lock_guard<std::mutex> lock(buckets[bucket_index].mtx);
+                struct Sentinel* bucket = &buckets[bucket_index];
+                // acquire the lock
+                std::lock_guard<std::mutex> lock(bucket->lock);
 
                 // do this bucket's updates
                 while (update_indices[bucket_index].size() > 0)
@@ -91,9 +111,10 @@ public:
         {
             if (update_indices[bucket_index].size() > 0)
             {
+                struct Sentinel* bucket = &buckets[bucket_index];
                 // acquire lock
-                std::lock_guard<std::mutex> lock(buckets[bucket_index].mtx);
-
+                std::lock_guard<std::mutex> lock(bucket->lock);
+                
                 // do this bucket's updates
                 while (update_indices[bucket_index].size() > 0)
                 {
@@ -125,8 +146,9 @@ public:
         {
             if (update_indices[bucket_index].size() > 0)
             {
+                struct Sentinel* bucket = &buckets[bucket_index];
                 // acquire lock
-                std::lock_guard<std::mutex> lock(buckets[bucket_index].mtx);
+                std::lock_guard<std::mutex> lock(bucket->lock);
 
                 // do this bucket's updates
                 while (update_indices[bucket_index].size() > 0)
@@ -148,15 +170,18 @@ public:
     bool _insert(int key)
     {
         struct Sentinel* bucket = &buckets[key % numBuckets];
+
+        // acquire lock
+        //std::lock_guard<std::mutex> lock(bucket->);
         struct Node* current = bucket->head;
         struct Node* previous = current;
 
-        struct Node* node = new Node;
-        node->value = key;
-        node->next = NULL;
-
         if (current == NULL)
         {
+            struct Node* node = new Node;
+            node->value = key;
+            node->next = NULL;
+
             bucket->head = node;
 
             return true;
@@ -171,6 +196,10 @@ public:
         if (current == NULL)
         {
             // we're at the end of the list
+            struct Node* node = new Node;
+            node->value = key;
+            node->next = NULL;
+
             previous->next = node;
             return true;
         }
@@ -181,10 +210,14 @@ public:
             return false;
         }
 
+        struct Node* node = new Node;
+        node->value = key;
+        node->next = NULL;
+
         if (current == previous)
         {
             // are we at the head?
-            node->next = current;
+            bucket->head = node;
         }
         else
         {
@@ -200,6 +233,9 @@ public:
     bool _remove(int key)
     {
         struct Sentinel* bucket = &buckets[key % numBuckets];
+
+        // acquire lock
+        //std::lock_guard<std::mutex> lock(bucket->mtx);
         struct Node* current = bucket->head;
         struct Node* previous = current;
 
@@ -227,12 +263,18 @@ public:
         }
         
         delete current;
+
         return true;
     }
 
     bool _lookup(int key) const
     {
+        struct Sentinel* bucket = &buckets[key % numBuckets];
+
+        // acquire lock
+        //std::lock_guard<std::mutex> lock(bucket->mtx);
         struct Node* current = buckets[key % numBuckets].head;
+
         while (current != NULL && key > current->value)
         {
             current = current->next;
@@ -258,7 +300,7 @@ public:
 	//This refers to the number of buckets not the total number of elements.
 	size_t getSize() const
 	{
-		return 0;
+		return (size_t) numBuckets;
 	}
 
 	//This refers to the number of elements in a bucket, not the sentinel node.
@@ -266,9 +308,38 @@ public:
 	{
 		return 0;
 	}
+
+    size_t getBucketSize(size_t bucket)
+    {
+        struct Node* current = buckets[bucket].head;
+
+        size_t size = 0;
+        while (current != NULL)
+        {
+            ++size;
+            current = current->next;
+        }
+
+        return size;
+    }
+
+    // returns 0 or the value at the requested index
 	int getElement(size_t bucket, size_t idx) const
 	{
-		return 0;
+		struct Node* current = buckets[bucket].head;
+
+        while (idx > 0 && current != NULL)
+        {
+            current = current->next;
+            --idx;
+        }
+
+        if (idx == 0)
+        {
+            return current->value;
+        }
+
+        return 0;
 	}
 
 
