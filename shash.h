@@ -5,22 +5,22 @@
 ///       table of integers, implemented as an array of linked lists.  In
 ///       this implementation, each list should have a "sentinel" node that
 ///       contains the lock, so we can't just reuse the clist implementation
-
-struct Node {
-	int val;
-	struct Node * next;
-};
-
-struct SentinelNode {
-	std::mutex mtx;
-	struct Node * head;
-};
-
-struct SentinelNode * buckets;
-unsigned numBuckets;
-
 class shash
 {
+private:
+	struct Node {
+		int val;
+		struct Node * next;
+	};
+	
+	struct SentinelNode {
+		std::mutex mtx;
+		struct Node * head;
+	};
+	
+	struct SentinelNode * buckets;
+	unsigned numBuckets;
+	
 public:
 	shash(unsigned _buckets)
 	{

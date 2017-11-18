@@ -7,6 +7,7 @@
 /// linked list of integers, which should use readers/writer locking.
 class rwlist
 {
+private:
 	/// a node consists of a value and a pointer to another node
 	struct Node
 	{
